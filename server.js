@@ -1,5 +1,8 @@
 function selectRoom(id, title) {
-            currentRoom = id;
+const express = require('express');
+const path = require('path');
+const app = express();
+// ... остальной код            currentRoom = id;
             document.getElementById('chat-header').innerText = title;
             document.getElementById('messages').innerHTML = ''; // Очистка при смене
             socket.emit('get-history', id);
