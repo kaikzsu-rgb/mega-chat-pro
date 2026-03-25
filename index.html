@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+   <link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <title>MegaChat Pro</title>
+    <style>
+        :root { --bg: #0b141a; --panel: #202c33; --green: #00a884; --my-msg: #005c4b; --text: #e9edef; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+        
+        #messages { list-style: none; margin: 0; padding: 15px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        .msg { display: flex; align-items: flex-start; margin-bottom: 15px; animation: slideUp 0.2s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Аватарка */
+        .avatar { width: 35px; height: 35px; border-radius: 50%; background: #53bdeb; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; flex-shrink: 0; }
+        
+        .msg-content { padding: 8px 12px; background: var(--panel); border-radius: 0 10px 10px 10px; position: relative; max-width: 70%; }
+        .my-msg { flex-direction: row-reverse; }
+        .my-msg .avatar { margin-right: 0; margin-left: 10px; }.my-msg .msg-content { background: var(--my-msg); border-radius: 10px 0 10px 10px; }
+        
+        .msg-img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; cursor: zoom-in; }
+        
+        .time { font-size: 0.65em; color: #8696a0; float: right; margin-top: 5px; margin-left: 8px; }
+        .del-btn { color: #f25c5c; cursor: pointer; font-size: 12px; margin-left: 5px; opacity: 0.5; }
+        .del-btn:hover { opacity: 1; }
+
+        #form { background: var(--panel); padding: 10px; display: flex; align-items: center; border-top: 1px solid #2f3b44; }
+        #input { background: #2a3942; border: none; color: white; padding: 12px; flex-grow: 1; border-radius: 20px; outline: none; margin: 0 10px; }
+        
+        #file-input { display: none; }
+        .btn-icon { background: none; border: none; font-size: 20px; cursor: pointer; color: #8696a0; }
+        #typing-status { padding: 5px 20px; font-size: 0.8em; color: var(--green); min-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <ul id="messages"></ul>
+    <div id="typing-status"></div>
+
+    <form id="form">
+        <label class="btn-icon" title="Прикрепить фото">
+            📎 <input type="file" id="file-input" accept="image/*">
+        </label>
+        <button type="button" class="btn-icon" id="emoji-btn">😊</button>
+        <input id="input" autocomplete="off" placeholder="Введите сообщение..." />
+        <button type="submit" style="background:var(--green); border-radius:50%; width:40px; height:40px; color:white;">➜</button>
+    </form><script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const myName = prompt("Твое имя:") || "Аноним";
+        const messages = document.getElementById('messages');
+        const input = document.getElementById('input');
+        const fileInput = document.getElementById('file-input');
+        let selectedImg = null;
+
+        // Генерация цвета для аватарки
+        const getAvatarColor = (str) => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            return `hsl(${hash % 360}, 60%, 50%)`;
+        };
+
+        // Обработка фото
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => { selectedImg = ev.target.result; input.style.border = "2px solid #00a884"; };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        document.getElementById('form').onsubmit = (e) => {
+            e.preventDefault();
+            if (input.value || selectedImg) {
+                socket.emit('chat message', { name: myName, text: input.value, image: selectedImg });
+                input.value = ''; selectedImg = null; input.style.border = "none";
+            }
+        };
+
+        function addMessage(data) {
+            const isMe = data.name === myName;
+            const li = document.createElement('li');
+            li.className = `msg ${isMe ? 'my-msg' : ''}`;
+            li.id = 'msg-' + data.id;
+            
+            li.innerHTML = `
+                <div class="avatar" style="background:${getAvatarColor(data.name)}">${data.name[0]}</div>
+                <div class="msg-content"><b style="font-size:0.8em">${data.name}</b>
+                    ${data.text ? `<div>${data.text}</div>` : ''}
+                    ${data.image ? `<img src="${data.image}" class="msg-img">` : ''}
+                    <span class="time">${data.time} ${isMe ? `<span class="del-btn" onclick="socket.emit('delete message', ${data.id})">×</span>` : ''}</span>
+                </div>
+            `;
+            messages.appendChild(li);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        socket.on('chat message', addMessage);
+        socket.on('load history', (h) => h.forEach(addMessage));
+        socket.on('message deleted', (id) => document.getElementById('msg-'+id)?.remove());
+
+        // Статус печатает
+        input.oninput = () => socket.emit('typing', { name: myName, status: input.value.length > 0 });
+        socket.on('user typing', (d) => {
+            document.getElementById('typing-status').innerText = d.status ? d.name + ' печатает...' : '';
+        });
+    </script>
+</body>
+</html>
