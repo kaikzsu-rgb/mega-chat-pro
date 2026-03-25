@@ -1,43 +1,22 @@
-function selectRoom(id, title) {
 const express = require('express');
-const path = require('path');
 const app = express();
-// ... остальной код            currentRoom = id;
-            document.getElementById('chat-header').innerText = title;
-            document.getElementById('messages').innerHTML = ''; // Очистка при смене
-            socket.emit('get-history', id);
-        }
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const path = require('path');
 
-        function send() {
-            const input = document.getElementById('msgInput');
-            if(!input.value.trim()) return;
+app.use(express.static(__dirname));
 
-            const data = {
-                room: currentRoom,
-                user: currentUser.name,
-                text: input.value,
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            };
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-            socket.emit('message', data);
-            input.value = '';
-        }
+io.on('connection', (socket) => {
+  socket.on('chat message', (data) => {
+    io.emit('chat message', data);
+  });
+});
 
-        socket.on('message', (msg) => {
-            const div = document.createElement('div');
-            div.className = `msg ${msg.user === currentUser.name ? 'my' : 'bot'}`;
-            div.innerHTML = `
-                <span class="sender">${msg.user}</span>
-                ${msg.text}
-                <div style="font-size:10px; text-align:right; opacity:0.6;">${msg.time}</div>
-            `;
-            const box = document.getElementById('messages');
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
-        });
-
-        function checkEnter(e) { if(e.key === 'Enter') send(); }
-        function toggleMenu() { alert('Меню создания: Группы, Каналы, Контакты'); }
-    </script>
-</body>
-</html>
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => {
+  console.log('Server is running on port ' + PORT);
+});
