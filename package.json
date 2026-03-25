@@ -1,15 +1,2 @@
 
-{
-  "name": "megachat-pro",
-  "version": "1.0.0",
-  "description": "My first chat app",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "sqlite3": "^5.1.6"
-  }
-}
+ { "name": "mega-chat-pro", "version": "1.0.0", "description": "", "main": "server.js", "scripts": { "start": "node server.js" }, "dependencies": { "express": "^4.18.2", "socket.io": "^4.7.2" } }.
